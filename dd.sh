@@ -30,14 +30,14 @@ function Menu() {
     echo -e "Example: \033[01;33m/home/username/Desktop/image.iso\033[01;37m"
     echo "========================================================"
     echo
-    read -e -p "Type here:" $local
+    read -p "Type here:" local
     SudoDD
 }
 
 function SudoDD() {
     echo -e "Writing image in \033[01;32m$local \033[01;37m]..."
     umount /dev$disk
-    mkfs.vfat -F32 $disk
+    mkfs.vfat -F32 /dev$disk
     sudo dd if=$local of=/dev$disk
     echo -e '\n\n\n'
     echo "Operation has been completed"

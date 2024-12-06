@@ -1,4 +1,5 @@
 #!/bin/bash
+
 clear
 
 function Menu() {
@@ -9,44 +10,83 @@ function Menu() {
     lsblk
     echo -e '\n'
     echo "======================================"
-    echo "Don't forget the disk prefix, example:"
-    echo "         /sda1, /sda2, /sda3, /sda4 ...          "
+    echo "Don't forget the disk prefix (e.g., /dev/sda1, /dev/sdb)."
     echo "======================================"
     echo
-    read -p "Type here:" disk
+
+    while true; do
+        read -p "Enter target disk (/dev/sdX#): " disk
+        if [[ "$disk" =~ ^/dev/sd[a-z][0-9]*$ ]]; then
+            break
+        else
+            echo "Invalid disk input. Please use the format /dev/sdX# (e.g., /dev/sda1)."
+        fi
+    done
+
     clear
     echo ""
     echo "======================================"
-    echo -e "Remember, \033[01;33mall data contained in"
-    echo -e "    $disk will be lost\033[01;37m."
+    echo -e "WARNING: All data on $disk will be lost!"
     echo "======================================"
-    echo " Press CTRL+C to stop or wait 5sec to "
-    echo "             continue."
-    sleep 5
+    read -p "Type 'YES' to confirm and continue: " confirmation
+    if [[ "$confirmation" != "YES" ]]; then
+        echo "Operation cancelled."
+        exit 0
+    fi
     clear
-    echo ""
-    echo "========================================================"
-    echo "Now, write the directory of the ISO image to be written."
-    echo -e "Example: \033[01;33m/home/username/Desktop/image.iso\033[01;37m"
-    echo "========================================================"
-    echo
-    read -p "Type here:" local
-    SudoDD
+
+    GetISO
 }
 
-function SudoDD() {
-    echo -e "Writing image in \033[01;32m$local \033[01;37m]..."
-    umount /dev$disk
-    mkfs.vfat -F32 /dev$disk
-    sudo dd if=$local of=/dev$disk
+
+function GetISO() {
+    echo ""
+    echo "========================================================"
+    echo "Enter the full path to the ISO image file:"
+    echo "Example: /home/user/Desktop/image.iso"
+    echo "========================================================"
+    echo
+
+    while true; do
+        read -p "Enter ISO image path: " local
+        if [[ -f "$local" ]]; then
+            break
+        else
+            echo "Invalid file path.  Please enter a valid path to an existing ISO file."
+        fi
+    done
+    WriteImage
+}
+
+
+function WriteImage() {
+    echo -e "Writing image $local to $disk..."
+    #Unmount if mounted
+    if mountpoint "$disk" ; then
+        umount "$disk" || { echo "Error unmounting $disk"; exit 1; }
+    fi
+
+    #Check if the device is a block device
+    if [[ ! -b "$disk" ]]; then
+        echo "Error: $disk is not a block device."
+        exit 1
+    fi
+
+    # Use pv for progress bar
+    sudo pv -p "$local" | sudo dd of="$disk" bs=4M status=progress conv=fsync
+    if [ $? -ne 0 ]; then
+        echo "Error writing image to disk."
+        exit 1
+    fi
+
     echo -e '\n\n\n'
-    echo "Operation has been completed"
+    echo "Operation completed."
     echo "What you want to do?"
-    read -p "[ 1 ] EXIT   /   [ 2 ] BACK : " $function
+    read -p "[ 1 ] EXIT   /   [ 2 ] BACK : " function
     case $function in
-    1) exit ;;
-    2) Menu ;;
-    *) ;;
+        1) exit ;;
+        2) Menu ;;
+        *) echo "Invalid choice."; exit 0 ;;
     esac
 }
 
